@@ -70,7 +70,6 @@ def encode(text, codes):
     for s in text:
         encoded_text += codes[s]
 
-    print(encoded_text)
     excess_zeros_cnt = 8 - len(encoded_text) % 8
     excess_zeros_info = "{0:08b}".format(excess_zeros_cnt)
 
@@ -89,7 +88,6 @@ def to_binary(encoded_text):
     bin_code = bytearray()
     for i in range(0, len(encoded_text), 8):
         byte = encoded_text[i:i + 8]
-        # print(byte)
         bin_code.append(int(byte, 2))
     return bin_code
 
@@ -98,7 +96,6 @@ def getBinarySymbolsCodes(codes):
     res = ''
     for sym, code in codes.items():
         symbol_byte_code = to_bytes(bin(ord(sym))[2:])
-        # print(sym, ord(sym), symbol_byte_code, end=' ')
         res += symbol_byte_code
 
         len_code = to_bytes(bin(len(code))[2:])
