@@ -1,11 +1,12 @@
 from Node import Node
 from Tree import HuffmanTree
 
+
 # _______________________ENCODE tools_____________________________
 def to_zmh(file_name):
     with open(file_name, "r", encoding="utf-8") as input, open(file_name + '.zmh', 'wb') as output:
         text = input.read().rstrip()
-        print(text)
+
         # create list with distinct symbols sorted by their frequencies
         sorted_frequencies = getSortedFrequency(text)
 
@@ -49,14 +50,16 @@ def getHuffmanTree(frequencies):
         # sort to save frequencies order
         trees = sorted(trees, key=lambda x: x.node.frequency)
 
-
     return trees[0]
 
 
 def createCodes(tree, prefix='', codes={}):
     # if it's a leaf
     if tree.left is None and tree.right is None:
-        codes[tree.node.symbol] = prefix
+        if prefix == '':
+            codes[tree.node.symbol] = '0'
+        else:
+            codes[tree.node.symbol] = prefix
         return codes
     # else merge dicts of left and right
     return dict(createCodes(tree.left, prefix + '0'), **createCodes(tree.right, prefix + '1'))
@@ -95,7 +98,7 @@ def getBinarySymbolsCodes(codes):
     res = ''
     for sym, code in codes.items():
         symbol_byte_code = to_bytes(bin(ord(sym))[2:])
-        #print(sym, ord(sym), symbol_byte_code, end=' ')
+        # print(sym, ord(sym), symbol_byte_code, end=' ')
         res += symbol_byte_code
 
         len_code = to_bytes(bin(len(code))[2:])
@@ -132,7 +135,7 @@ def from_zmh(file_name):
         dict_size = int(file[-1])
 
         # extract dictionary with symbols and their codes in binary format
-        bin_codes =  file[-dict_size * 3 - 1: -1]
+        bin_codes = file[-dict_size * 3 - 1: -1]
         codes = readCodes(bin_codes, dict_size)
 
         decoded_text = decode(file[:-dict_size * 3 - 1], codes)
@@ -145,19 +148,11 @@ def decode(encoded_text, codes):
     text = encoded_text[:-1]
 
     # convert to number binary text
-    bin_text_as_number = int.from_bytes(text, byteorder='big')
-
-    # convert to sequence of 0 and 1
-    bin_text = bin(bin_text_as_number)[2:]
-
-    # bin remove not meaningful zeros at start, we should return them back
-    # so let's count of not meaningful zeros that we need
-    start_zeros = 0
-    if len(bin_text) % 8 != 0:
-        start_zeros = 8 - len(bin_text) % 8
-
-    # add not meaningful zeros at start
-    byte_text = '0' * start_zeros + bin_text
+    byte_text = ''
+    for byte in text:
+        if len(bin(byte)[2:]) % 8 != 0:
+            byte_text += '0' * (8 - len(bin(byte)[2:]) % 8)
+        byte_text += bin(byte)[2:]
 
     # read byte with count of additional zeros
     additional_zeros_cnt = int(encoded_text[-1])
