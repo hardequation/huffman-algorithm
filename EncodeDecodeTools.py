@@ -9,7 +9,7 @@ def to_zmh(file_name):
 
         if text == "":
             output.write(b"")
-            exit(0)
+            return
 
         # create list with distinct symbols sorted by their frequencies
         sorted_frequencies = getSortedFrequency(text)
@@ -133,6 +133,11 @@ def from_zmh(file_name):
         bits = []
 
         byte = input.read(1)
+
+        if byte == b"":
+            output.write("")
+            return
+
         while len(byte) > 0:
             byte = ord(byte)
             bin_byte = bin(byte)[2:].rjust(8, '0')
