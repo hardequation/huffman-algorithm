@@ -4,26 +4,35 @@ from Tree import HuffmanTree
 
 # _______________________ENCODE tools_____________________________
 def to_zmh(file_name):
-    with open(file_name, "r", encoding="utf-8") as input, open(file_name + '.zmh', 'wb') as output:
-        text = input.read().rstrip()
+    with open(file_name, "rb") as input, open(file_name + '.zmh', 'wb') as output:
+        byte_text = []
 
-        if text == "":
+        byte = input.read(1)
+
+        # if file is empty
+        if byte == b"":
             output.write(b"")
             return
 
+        # read by byte
+        while len(byte) > 0:
+            byte = ord(byte)
+            byte_text.append(byte)
+            byte = input.read(1)
+
         # create list with distinct symbols sorted by their frequencies
-        sorted_frequencies = getSortedFrequency(text)
+        sorted_frequencies = getSortedFrequency(byte_text)
 
         # create Huffman tree for coding
         tree = getHuffmanTree(sorted_frequencies)
 
-        # coding of symbols by tree
+        # get dictionary with symbols and their code
         codes = createCodes(tree)
 
         # create sequence of '0' and '1'
-        encoded_text = encode(text, codes)
+        encoded_text = encode(byte_text, codes)
 
-        # translate str to binary code
+        # translate str of 0 and 1 to binary code
         binary_code = to_binary(encoded_text)
 
         output.write(bytes(binary_code))
@@ -61,97 +70,113 @@ def createCodes(tree, prefix='', codes={}):
     # if it's a leaf
     if tree.left is None and tree.right is None:
         if prefix == '':
+            # if text is from only one symbol
             codes[tree.node.symbol] = '0'
         else:
             codes[tree.node.symbol] = prefix
         return codes
-    # else merge dicts of left and right
-    return dict(createCodes(tree.left, prefix + '0'), **createCodes(tree.right, prefix + '1'))
+
+    left = createCodes(tree.left, prefix + '0')
+    right = createCodes(tree.right, prefix + '1')
+
+    # else merge left and right dicts
+    for k, v in right.items():
+        left[k] = v
+
+    return left
 
 
-def encode(text, codes):
+def encode(bytes_text, codes):
     encoded_text = ''
-    for s in text:
+
+    # encode text
+    for s in bytes_text:
         encoded_text += codes[s]
 
+    # add zeros for byte format
     excess_zeros_cnt = 8 - len(encoded_text) % 8
+
+    # how much zeros we added on last step
     excess_zeros_info = "{0:08b}".format(excess_zeros_cnt)
 
-    encoded_text = encoded_text + ('0' * excess_zeros_cnt) + excess_zeros_info
+    encoded_text += ('0' * excess_zeros_cnt) + excess_zeros_info
+
     if len(encoded_text) % 8 != 0:
         print("Encoded text contains wrong count of bits")
         exit(0)
 
-    # also we need additional info in the end of file to be able to decode
-    encoded_text += getBinarySymbolsCodes(codes)
+    # also we need dictionary with symbols and their codes to decode
+    encoded_text += getBinaryDictionary(codes)
 
     return encoded_text
 
 
 def to_binary(encoded_text):
     bin_code = bytearray()
+
+    if len(encoded_text) % 8 != 0:
+        print("Count of 0 and 1 in encoded text is not divisible by 8")
+        exit(0)
+
     for i in range(0, len(encoded_text), 8):
         byte = encoded_text[i:i + 8]
         bin_code.append(int(byte, 2))
     return bin_code
 
 
-def getBinarySymbolsCodes(codes):
+def getBinaryDictionary(codes):
     res = ''
     for sym, code in codes.items():
-        symbol_byte_code = to_bytes(bin(ord(sym))[2:])
-        res += symbol_byte_code
+        # get binary code of symbol and add meaningless zeros at start for byte format
+        symbol_byte_code = bin(sym)[2:].rjust(8, '0')
 
-        len_code = to_bytes(bin(len(code))[2:])
-        byte_code = to_bytes(code)
-        res += len_code + byte_code
+        # get length of code to distinguish codes '0', '01', '001' etc.
+        len_code = bin(len(code))[2:].rjust(8, '0')
+
+        # get binary code of symbol code
+        byte_code = code.rjust(8, '0')
+        res += symbol_byte_code + len_code + byte_code
 
     # also we should know how much distinct symbols we have
-    count_of_unique_symbols = to_bytes(bin(len(codes))[2:])
+    count_of_unique_symbols = bin(len(codes))[2:].rjust(8, '0')
     res += count_of_unique_symbols
 
     return res
 
 
-def to_bytes(bits):
-    # this function adds zeros at start for byte format because byte is 8 bits
-    return '0' * (8 - len(bits) % 8) + bits
-
-
 # _______________________DECODE tools_____________________________
 
 def from_zmh(file_name):
-    """
-    format of zmh file:
-    1. text
-    2. additional zeros for translation to bytes
-    3. 1 byte is count of additional zeros
-    4. dictionary with symbols and their codes: sym1code1sym2code2...
-    5. 1 byte is count of distinct symbols in text
-    """
-    with open(file_name, "rb") as input, open("output", "w", encoding="utf-8") as output:
+    with open(file_name, "rb") as input, open("output", "wb") as output:
         bits = []
 
         byte = input.read(1)
 
         if byte == b"":
-            output.write("")
+            output.write(b"")
             return
 
+        # read by byte and create list of bytes
         while len(byte) > 0:
             byte = ord(byte)
             bin_byte = bin(byte)[2:].rjust(8, '0')
             bits.append(bin_byte)
             byte = input.read(1)
 
-        dict_size = int(bits[-1], 2)
+        # get count of distinct symbols in text
+        count_of_unique_symbols = int(bits[-1], 2)
+
         # extract dictionary with symbols and their codes in binary format
-        code_bytes = bits[-dict_size * 3 - 1: -1]
-        codes = readCodes(code_bytes, dict_size)
+        # info about 1 symbol = symbol code + code length + code = 3 bytes
+        # info about dictionary = info about 1 symbol * count_of_unique_symbols = 3 bytes * count_of_unique_symbols
+        dictionary_bytes = bits[-count_of_unique_symbols * 3 - 1: -1]
+        codes = readCodes(dictionary_bytes, count_of_unique_symbols)
 
-        decoded_text = decode(bits[:-dict_size * 3 - 1], codes)
+        # decode bytes
+        text = bits[:-count_of_unique_symbols * 3 - 1]
+        decoded_text = decode(text, codes)
 
-        output.write(decoded_text)
+        output.write(bytes(decoded_text))
 
 
 def decode(encoded_text, codes):
@@ -164,21 +189,22 @@ def decode(encoded_text, codes):
     # remove additional zeros that we added for byte format
     bin_text = text[:-additional_zeros_cnt]
 
+    # decode text
     current_code = ''
-    decoded_code = ''
+    decoded_code = bytearray()
     for bit in bin_text:
         current_code += bit
         if current_code in codes:
-            decoded_code += codes[current_code]
-            current_code = ""
+            decoded_code.append(codes[current_code])
+            current_code = ''
     return decoded_code
 
 
 def readCodes(encoded_text, dict_size):
     codes = {}
-    # read by pair of symbol and its code
+    # read by triple of symbol, code length and its code
     for i in range(0, dict_size * 3, 3):
-        sym = chr(int(encoded_text[i], 2))
+        sym = int(encoded_text[i], 2)
         len_code = int(encoded_text[i + 1], 2)
         code = encoded_text[i + 2][-len_code:]
 

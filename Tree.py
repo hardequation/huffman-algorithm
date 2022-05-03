@@ -12,7 +12,7 @@ class HuffmanTree:
         return HuffmanTree(Node(None, freq), self, other)
 
     def __repr__(self, level=0):
-        ret = "\t" * level + ('None' if self.node.symbol is None else self.node.symbol)
+        ret = "\t" * level + ('None' if self.node.symbol is None else str(self.node.symbol))
         ret += ' '
         ret += str(self.node.frequency)
         ret += "\n"
