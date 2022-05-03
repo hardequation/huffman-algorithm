@@ -7,6 +7,10 @@ def to_zmh(file_name):
     with open(file_name, "r", encoding="utf-8") as input, open(file_name + '.zmh', 'wb') as output:
         text = input.read().rstrip()
 
+        if text == "":
+            output.write(b"")
+            exit(0)
+
         # create list with distinct symbols sorted by their frequencies
         sorted_frequencies = getSortedFrequency(text)
 
@@ -126,36 +130,34 @@ def from_zmh(file_name):
     5. 1 byte is count of distinct symbols in text
     """
     with open(file_name, "rb") as input, open("output", "w", encoding="utf-8") as output:
-        file = input.read()
+        bits = []
 
-        # extract count of distinct symbols in text
-        dict_size = int(file[-1])
+        byte = input.read(1)
+        while len(byte) > 0:
+            byte = ord(byte)
+            bin_byte = bin(byte)[2:].rjust(8, '0')
+            bits.append(bin_byte)
+            byte = input.read(1)
 
+        dict_size = int(bits[-1], 2)
         # extract dictionary with symbols and their codes in binary format
-        bin_codes = file[-dict_size * 3 - 1: -1]
-        codes = readCodes(bin_codes, dict_size)
+        code_bytes = bits[-dict_size * 3 - 1: -1]
+        codes = readCodes(code_bytes, dict_size)
 
-        decoded_text = decode(file[:-dict_size * 3 - 1], codes)
+        decoded_text = decode(bits[:-dict_size * 3 - 1], codes)
 
         output.write(decoded_text)
 
 
 def decode(encoded_text, codes):
     # read text with additional zeros
-    text = encoded_text[:-1]
-
-    # convert to number binary text
-    byte_text = ''
-    for byte in text:
-        if len(bin(byte)[2:]) % 8 != 0:
-            byte_text += '0' * (8 - len(bin(byte)[2:]) % 8)
-        byte_text += bin(byte)[2:]
+    text = "".join(encoded_text[:-1])
 
     # read byte with count of additional zeros
-    additional_zeros_cnt = int(encoded_text[-1])
+    additional_zeros_cnt = int(encoded_text[-1], 2)
 
     # remove additional zeros that we added for byte format
-    bin_text = byte_text[:-additional_zeros_cnt]
+    bin_text = text[:-additional_zeros_cnt]
 
     current_code = ''
     decoded_code = ''
@@ -171,10 +173,9 @@ def readCodes(encoded_text, dict_size):
     codes = {}
     # read by pair of symbol and its code
     for i in range(0, dict_size * 3, 3):
-        sym = chr(encoded_text[i])
-        len_code = encoded_text[i + 1]
-        code = '0' * (8 - len(bin(encoded_text[i + 2])[2:])) + bin(encoded_text[i + 2])[2:]
-        code = code[-len_code:]
+        sym = chr(int(encoded_text[i], 2))
+        len_code = int(encoded_text[i + 1], 2)
+        code = encoded_text[i + 2][-len_code:]
 
         codes[code] = sym
 
