@@ -138,7 +138,7 @@ def from_zmh(file_name):
     byte_text = readBytes(file_name)
 
     if not byte_text:
-        writeBytes("output", b"")
+        writeBytes(file_name.split('.')[0], b"")
         return
     # convert numbers to str of '0' and '1'
     bin_text = numToBits(byte_text)
@@ -151,7 +151,7 @@ def from_zmh(file_name):
 
     decoded_text = decode(text, codes)
 
-    writeBytes("output", decoded_text)
+    writeBytes(file_name.split('.')[0], decoded_text)
 
 
 def decode(encoded_text, codes):
