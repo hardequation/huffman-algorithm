@@ -1,6 +1,9 @@
-We are going to encode in such format:
-1. sequence of symbols according to their codes
-2. additional zeros in the end for byte format
-3. 1 byte contains count of additional zeros
-4. symbols_cnt * 3 bytes contains dictionary with symbols, code length and code 
-5. 1 byte contains count of distinct symbols in dictionary
+Формат zmh файла:
+1. Словарь в формате: количество символов в словаре(1 байт) + символ1(1 байт) + длина кода символа1(1 байт) + код символа1 + ...
+2. 1 байт с числом дополнительных нулей
+3. Дополнительные нули, чтобы длина закодированной строки была кратна 8 для последующего перевода в байты
+4. Закодированный текст
+
+## TO DO: сколько можно сэкономить для различных типов файла
+## TO DO: почему такие результаты, как их интерпретировать
+## TO DO: сравнить с архиваторами zip, rar, 7z

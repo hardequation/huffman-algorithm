@@ -76,16 +76,19 @@ def createCodes(tree, prefix='', codes={}):
 def encode(bytes_text, codes):
     encoded_text = ''
 
+    # we need dictionary with symbols and their codes to decode
+    binary_dict = getBinaryDictionary(codes)
+
     # encode text
     for s in bytes_text:
         encoded_text += codes[s]
 
-    encoded_text = addZerosForByteFormat(encoded_text)
+    # add excess zeros for byte format
+    encoded_text = binary_dict + addZerosForByteFormat(binary_dict + encoded_text) + encoded_text
 
-    # also we need dictionary with symbols and their codes to decode
-    encoded_text += getBinaryDictionary(codes)
-
+    # convert from str of '0' and '1' to byte format
     encoded_text = to_binary(encoded_text)
+
     return encoded_text
 
 
@@ -96,9 +99,7 @@ def addZerosForByteFormat(bits):
     # how much zeros we added on last step
     excess_zeros_info = numToBits(excess_zeros_cnt)
 
-    bits += ('0' * excess_zeros_cnt) + excess_zeros_info
-
-    return bits
+    return excess_zeros_info + ('0' * excess_zeros_cnt)
 
 
 def to_binary(encoded_text):
@@ -116,21 +117,18 @@ def to_binary(encoded_text):
 
 def getBinaryDictionary(codes):
     res = ''
+    # we should know how much distinct symbols we have
+    count_of_unique_symbols = numToBits(len(codes))
+    res += count_of_unique_symbols
+
     for sym, code in codes.items():
-        # get binary code of symbol and add meaningless zeros at start for byte format
+        # get binary code of symbol
         symbol_byte_code = numToBits(sym)
 
         # get length of code to distinguish codes '0', '01', '001' etc.
         len_code = numToBits(len(code))
 
-        # get binary code of symbol code
-        byte_code = code.rjust(8, '0')
-        res += symbol_byte_code + len_code + byte_code
-
-    # also we should know how much distinct symbols we have
-    count_of_unique_symbols = numToBits(len(codes))
-    res += count_of_unique_symbols
-
+        res += symbol_byte_code + len_code + code
     return res
 
 
@@ -140,32 +138,28 @@ def from_zmh(file_name):
     byte_text = readBytes(file_name)
 
     if not byte_text:
-        writeBytes(file_name.split('.')[0], b"")
+        writeBytes("output", b"")
         return
+    # convert numbers to str of '0' and '1'
+    bin_text = numToBits(byte_text)
 
-    count_of_unique_symbols = byte_text[-1]
-
-    # extract dictionary with symbols and their codes in binary format
-    # info about 1 symbol = symbol code + code length + code = 3 bytes
-    # info about dictionary = info about 1 symbol * count_of_unique_symbols = 3 bytes * count_of_unique_symbols
-    dictionary_bytes = byte_text[-count_of_unique_symbols * 3 - 1: -1]
-    codes = readCodes(dictionary_bytes, count_of_unique_symbols)
+    # extract dictionary with codes, len_codes - bits size for dictionary
+    codes, len_codes = readCodes(bin_text)
 
     # decode bytes
-    text = byte_text[:-count_of_unique_symbols * 3 - 1]
+    text = bin_text[len_codes:]
 
     decoded_text = decode(text, codes)
 
-    writeBytes(file_name.split('.')[0], decoded_text)
+    writeBytes("output", decoded_text)
 
 
 def decode(encoded_text, codes):
-    # read byte with count of additional zeros
-    additional_zeros_cnt = encoded_text[-1]
+    # read 1 byte with count of additional zeros
+    additional_zeros_cnt = bitsToInt(encoded_text[:8])
 
-    bin_text = "".join([numToBits(byte) for byte in encoded_text[:-1]])
-    # remove additional zeros that we added for byte format
-    bin_text = bin_text[:-additional_zeros_cnt]
+    # extract clean text without additional zeros
+    bin_text = encoded_text[8 + additional_zeros_cnt:]
 
     # decode text
     current_code = ''
@@ -178,17 +172,25 @@ def decode(encoded_text, codes):
     return decoded_code
 
 
-def readCodes(encoded_text, dict_size):
+def readCodes(encoded_text):
     codes = {}
-    # read by triple of symbol, code length and its code
-    for i in range(0, dict_size * 3, 3):
-        sym = encoded_text[i]
-        len_code = encoded_text[i + 1]
-        code = numToBits(encoded_text[i + 2])[-len_code:]
+    # read 1 byte with count of symbols in dictionary
+    dict_size = bitsToInt(encoded_text[:8])
 
+    j = 8
+    for _ in range(dict_size):
+        # read 1 byte with symbol
+        sym = bitsToInt(encoded_text[j: j + 8])
+
+        # read 1 byte with length of code
+        len_code = bitsToInt(encoded_text[j + 8: j + 16])
+
+        # read len_code bits with code in our dictionary
+        code = encoded_text[j + 16: j + 16 + len_code]
+
+        j += 8 + 8 + len_code
         codes[code] = sym
-
-    return codes
+    return codes, j
 
 
 # -----------------------GENERAL tools-----------------------------
@@ -218,6 +220,11 @@ def writeBytes(file_name, encoded_text):
 
 
 def numToBits(num):
+    if isinstance(num, list):
+        res = ''
+        for n in num:
+            res += bin(n)[2:].rjust(8, '0')
+        return res
     return bin(num)[2:].rjust(8, '0')
 
 
