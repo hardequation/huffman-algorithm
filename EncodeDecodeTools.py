@@ -1,5 +1,6 @@
 from Node import Node
 from Tree import HuffmanTree
+import collections
 
 
 # _______________________ENCODE tools_____________________________
@@ -11,10 +12,10 @@ def to_zmh(file_name):
         return
 
     # create list with distinct symbols sorted by their frequencies
-    sorted_frequencies = getSortedFrequency(byte_text)
+    frequencies = getFrequency(byte_text)
 
     # create Huffman tree for coding
-    tree = getHuffmanTree(sorted_frequencies)
+    tree = getHuffmanTree(frequencies)
 
     # get dictionary with symbols and their code
     codes = createCodes(tree)
@@ -24,31 +25,26 @@ def to_zmh(file_name):
 
     writeBytes(file_name + '.zmh', encoded_text)
 
-
-def getSortedFrequency(text):
-    frequency = {}
+def getFrequency(text):
+    frequency = collections.defaultdict(int)
     for s in text:
-        if s in frequency.keys():
-            frequency[s] += 1
-        else:
-            frequency[s] = 1
-    return sorted(frequency.items(), key=lambda x: x[1], reverse=False)
+        frequency[s] += 1
+    return frequency
 
 
 def getHuffmanTree(frequencies):
     # create one-node Huffman tree for every symbol
-    trees = [HuffmanTree(Node(sym, freq)) for sym, freq in frequencies]
-
+    trees = [HuffmanTree(Node(sym, freq)) for sym, freq in frequencies.items()]
     # create one big Huffman tree from one-node trees by merging two nodes with lowest frequencies
     while len(trees) != 1:
+        # sort to save frequencies order
+        trees = sorted(trees, key=lambda x: x.node.frequency)
         # create new node by merging two nodes with lowest frequencies
         new_tree = trees[0] + trees[1]
         # del two old nodes with lowest frequencies
-        del [trees[0:2]]
+        trees = trees[2:]
         # insert new node
         trees += [new_tree]
-        # sort to save frequencies order
-        trees = sorted(trees, key=lambda x: x.node.frequency)
 
     return trees[0]
 
@@ -74,14 +70,14 @@ def createCodes(tree, prefix='', codes={}):
 
 
 def encode(bytes_text, codes):
-    encoded_text = ''
-
     # we need dictionary with symbols and their codes to decode
     binary_dict = getBinaryDictionary(codes)
 
     # encode text
+    encoded_text = []
     for s in bytes_text:
-        encoded_text += codes[s]
+        encoded_text.append(codes[s])
+    encoded_text = "".join(encoded_text)
 
     # add excess zeros for byte format
     encoded_text = binary_dict + addZerosForByteFormat(binary_dict + encoded_text) + encoded_text
@@ -118,7 +114,8 @@ def to_binary(encoded_text):
 def getBinaryDictionary(codes):
     res = ''
     # we should know how much distinct symbols we have
-    count_of_unique_symbols = numToBits(len(codes))
+    # -1 because 1 byte is from 0 to 255, so dict size = 256 isn't fit to byte
+    count_of_unique_symbols = numToBits(len(codes) - 1)
     res += count_of_unique_symbols
 
     for sym, code in codes.items():
@@ -175,7 +172,8 @@ def decode(encoded_text, codes):
 def readCodes(encoded_text):
     codes = {}
     # read 1 byte with count of symbols in dictionary
-    dict_size = bitsToInt(encoded_text[:8])
+    # +1 because 1 byte is from 0 to 255, so dict size = 256 isn't fit to byte
+    dict_size = bitsToInt(encoded_text[:8]) + 1
 
     j = 8
     for _ in range(dict_size):
@@ -221,10 +219,12 @@ def writeBytes(file_name, encoded_text):
 
 def numToBits(num):
     if isinstance(num, list):
-        res = ''
+        res = []
         for n in num:
-            res += bin(n)[2:].rjust(8, '0')
-        return res
+            res.append(bin(n)[2:].rjust(8, '0'))
+        return "".join(res)
+    if num > 255:
+        print("TOO BIG NUMBER", num)
     return bin(num)[2:].rjust(8, '0')
 
 
