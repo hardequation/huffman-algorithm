@@ -135,7 +135,7 @@ def from_zmh(file_name):
     byte_text = readBytes(file_name)
 
     if not byte_text:
-        writeBytes(file_name.split('.')[0], b"")
+        writeBytes(file_name.split('.zmh')[0], b"")
         return
     # convert numbers to str of '0' and '1'
     bin_text = numToBits(byte_text)
@@ -148,7 +148,7 @@ def from_zmh(file_name):
 
     decoded_text = decode(text, codes)
 
-    writeBytes(file_name.split('.')[0], decoded_text)
+    writeBytes(file_name.split('.zmh')[0], decoded_text)
 
 
 def decode(encoded_text, codes):
@@ -223,8 +223,6 @@ def numToBits(num):
         for n in num:
             res.append(bin(n)[2:].rjust(8, '0'))
         return "".join(res)
-    if num > 255:
-        print("TOO BIG NUMBER", num)
     return bin(num)[2:].rjust(8, '0')
 
 
