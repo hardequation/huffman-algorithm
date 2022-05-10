@@ -16,7 +16,7 @@ while True:
                 continue
 
             edt.from_zmh(file_name)
-            print("Decompressing is succesful! File was decompressed to '" + file_name.split('.')[0] + "'")
+            print("Decompressing is succesful! File was decompressed to '" + file_name.split('.zmh')[0] + "'")
         elif chose == '3':
             print("Exit")
             break
